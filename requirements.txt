@@ -1,0 +1,5 @@
+streamlit
+pymupdf
+pdfplumber
+mysql-connector-python
+pandas
