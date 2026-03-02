@@ -12,6 +12,8 @@ from textblob import TextBlob
 import plotly.graph_objects as go
 from fpdf import FPDF
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -19,13 +21,6 @@ st.set_page_config(
     page_icon="■",
     layout="wide",
 )
-
-# --- THEME MANAGEMENT ---
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'dark'  # default theme
-
-def toggle_theme():
-    st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
 
 # --- AI MODEL LOADING (Transformers) ---
 try:
@@ -115,8 +110,8 @@ if 'user_email' not in st.session_state:
     st.session_state.user_email = ""
 if 'menu_selection' not in st.session_state:
     st.session_state.menu_selection = 'Dashboard'
-if 'current_analysis' not in st.session_state:
-    st.session_state.current_analysis = None
+if 'analyses' not in st.session_state:
+    st.session_state.analyses = {}
 if 'current_filename' not in st.session_state:
     st.session_state.current_filename = ""
 if 'user_initial' not in st.session_state:
@@ -132,234 +127,197 @@ if 'fp_email' not in st.session_state:
 if 'fp_sq' not in st.session_state:
     st.session_state.fp_sq = ""
 
-# --- CSS STYLING (Themed, with key-based button styles) ---
-def get_css(theme):
-    if theme == 'dark':
-        bg_color = "#050505"
-        card_bg = "#111111"
-        text_color = "#FFFFFF"
-        text_dim = "#A0A0A0"
-        border = "#333333"
-        button_bg = "#1E1E1E"
-        primary_blue = "#0056b3"
-        input_bg = "#0F0F0F"
-        expander_bg = "#1A1A1A"
-        expander_content_bg = "#0A0A0A"
-        stat_box_bg = "#161616"
-        logout_bg = "#330000"
-        logout_hover = "#FF0000"
-        logout_text = "#FF4444"
-        theme_button_bg = "#2A2A2A"
-        theme_button_text = "#FFFFFF"
-        file_uploader_bg = "#0F0F0F"
-        file_uploader_text = "#FFFFFF"
-        file_uploader_border = "#333333"
-    else:  # light theme
-        bg_color = "#F5F5F5"
-        card_bg = "#FFFFFF"
-        text_color = "#000000"
-        text_dim = "#333333"
-        border = "#CCCCCC"
-        button_bg = "#E0E0E0"
-        primary_blue = "#007BFF"
-        input_bg = "#FFFFFF"
-        expander_bg = "#F0F0F0"
-        expander_content_bg = "#FAFAFA"
-        stat_box_bg = "#F0F0F0"
-        logout_bg = "#FFCCCC"
-        logout_hover = "#FF9999"
-        logout_text = "#990000"
-        theme_button_bg = "#DDDDDD"
-        theme_button_text = "#000000"
-        file_uploader_bg = "#FFFFFF"
-        file_uploader_text = "#000000"
-        file_uploader_border = "#CCCCCC"
+# --- DARK THEME CSS (permanent) ---
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
 
-    return f"""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    :root {
+        --bg-color: #050505;
+        --card-bg: #111111;
+        --text-color: #FFFFFF;
+        --text-dim: #A0A0A0;
+        --border: #333333;
+        --button-bg: #1E1E1E;
+        --primary-blue: #0056b3;
+        --input-bg: #0F0F0F;
+        --expander-bg: #1A1A1A;
+        --expander-content-bg: #0A0A0A;
+        --stat-box-bg: #161616;
+        --logout-bg: #330000;
+        --logout-hover: #FF0000;
+        --logout-text: #FF4444;
+        --file-uploader-bg: #0F0F0F;
+        --file-uploader-text: #FFFFFF;
+        --file-uploader-border: #333333;
+    }
 
-        .stApp {{
-            background-color: {bg_color};
-            font-family: 'Inter', sans-serif;
-            color: {text_color};
-        }}
+    .stApp {
+        background-color: var(--bg-color);
+        font-family: 'Inter', sans-serif;
+        color: var(--text-color);
+    }
 
-        h1, h2, h3, h4 {{ color: {text_color} !important; font-weight: 800; }}
-        p, label, span, div {{ color: {text_dim}; }}
+    h1, h2, h3, h4 { color: var(--text-color) !important; font-weight: 800; }
+    p, label, span, div { color: var(--text-dim); }
 
-        /* --- Navigation buttons styled by key --- */
-        /* Dashboard, Saved Papers, Upload History */
-        div.stButton > button[key="nav_dash"],
-        div.stButton > button[key="nav_saved"],
-        div.stButton > button[key="nav_hist"] {{
-            background-color: {button_bg};
-            color: {text_color};
-            border: 1px solid {border};
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-weight: 600;
-            width: 100%;
-        }}
-        div.stButton > button[key="nav_dash"]:hover,
-        div.stButton > button[key="nav_saved"]:hover,
-        div.stButton > button[key="nav_hist"]:hover {{
-            background-color: {border};
-            border-color: {text_color};
-        }}
+    /* --- Navigation buttons styled by key --- */
+    div.stButton > button[key="nav_dash"],
+    div.stButton > button[key="nav_saved"],
+    div.stButton > button[key="nav_hist"] {
+        background-color: var(--button-bg);
+        color: var(--text-color);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: 600;
+        width: 100%;
+    }
+    div.stButton > button[key="nav_dash"]:hover,
+    div.stButton > button[key="nav_saved"]:hover,
+    div.stButton > button[key="nav_hist"]:hover {
+        background-color: var(--border);
+        border-color: var(--text-color);
+    }
 
-        /* Theme toggle button */
-        div.stButton > button[key="theme_toggle"] {{
-            background-color: {theme_button_bg};
-            color: {theme_button_text};
-            border: 1px solid {border};
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-weight: 600;
-            width: 100%;
-        }}
-        div.stButton > button[key="theme_toggle"]:hover {{
-            background-color: {border};
-        }}
+    /* Logout button */
+    div.stButton > button[key="logout_btn"] {
+        background-color: var(--logout-bg) !important;
+        color: var(--logout-text) !important;
+        border: 1px solid var(--logout-text) !important;
+        border-radius: 8px;
+        font-weight: 600;
+        width: 100%;
+    }
+    div.stButton > button[key="logout_btn"]:hover {
+        background-color: var(--logout-hover) !important;
+    }
 
-        /* Logout button */
-        div.stButton > button[key="logout_btn"] {{
-            background-color: {logout_bg} !important;
-            color: {logout_text} !important;
-            border: 1px solid {logout_text} !important;
-            border-radius: 8px;
-            font-weight: 600;
-            width: 100%;
-        }}
-        div.stButton > button[key="logout_btn"]:hover {{
-            background-color: {logout_hover} !important;
-        }}
+    /* Profile circle button */
+    div.stButton > button[key="profile_circle"] {
+        background-color: var(--primary-blue);
+        color: white;
+        border-radius: 50%;
+        width: 45px;
+        height: 45px;
+        padding: 0;
+        font-size: 18px;
+        font-weight: 800;
+        border: 2px solid var(--text-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    div.stButton > button[key="profile_circle"]:hover {
+        background-color: #004494;
+        transform: scale(1.1);
+    }
 
-        /* Profile circle button */
-        div.stButton > button[key="profile_circle"] {{
-            background-color: {primary_blue};
-            color: white;
-            border-radius: 50%;
-            width: 45px;
-            height: 45px;
-            padding: 0;
-            font-size: 18px;
-            font-weight: 800;
-            border: 2px solid {text_color};
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-left: auto;
-            margin-right: auto;
-        }}
-        div.stButton > button[key="profile_circle"]:hover {{
-            background-color: #004494;
-            transform: scale(1.1);
-        }}
+    /* Analyze button */
+    div.stButton > button[key="analyze_btn"] {
+        background: linear-gradient(90deg, var(--primary-blue) 0%, #004494 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        font-size: 1.1rem;
+        border-radius: 8px;
+        margin-top: 20px;
+        width: 100%;
+    }
+    div.stButton > button[key="analyze_btn"]:hover {
+        opacity: 0.9;
+        box-shadow: 0 0 15px rgba(0,86,179,0.5);
+    }
 
-        /* Analyze button */
-        div.stButton > button[key="analyze_btn"] {{
-            background: linear-gradient(90deg, {primary_blue} 0%, #004494 100%);
-            color: white;
-            border: none;
-            padding: 15px;
-            font-size: 1.1rem;
-            border-radius: 8px;
-            margin-top: 20px;
-            width: 100%;
-        }}
-        div.stButton > button[key="analyze_btn"]:hover {{
-            opacity: 0.9;
-            box-shadow: 0 0 15px rgba(0,86,179,0.5);
-        }}
+    /* File uploader */
+    .stFileUploader {
+        background-color: var(--file-uploader-bg);
+        color: var(--file-uploader-text);
+        border: 1px dashed var(--file-uploader-border);
+        border-radius: 8px;
+        padding: 20px;
+    }
+    .stFileUploader label {
+        color: var(--file-uploader-text) !important;
+    }
+    .stFileUploader small {
+        color: var(--text-dim) !important;
+    }
+    .stFileUploader button {
+        background-color: var(--primary-blue);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 10px;
+    }
 
-        /* File uploader */
-        .stFileUploader {{
-            background-color: {file_uploader_bg};
-            color: {file_uploader_text};
-            border: 1px dashed {file_uploader_border};
-            border-radius: 8px;
-            padding: 20px;
-        }}
-        .stFileUploader label {{
-            color: {file_uploader_text} !important;
-        }}
-        .stFileUploader small {{
-            color: {text_dim} !important;
-        }}
-        .stFileUploader button {{
-            background-color: {primary_blue};
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
-        }}
+    /* Info cards */
+    .info-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    .info-title { color: var(--text-color); font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }
+    .info-text { color: var(--text-dim); font-size: 0.95rem; line-height: 1.6; }
 
-        /* Info cards */
-        .info-card {{
-            background-color: {card_bg};
-            border: 1px solid {border};
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 20px;
-        }}
-        .info-title {{ color: {text_color}; font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }}
-        .info-text {{ color: {text_dim}; font-size: 0.95rem; line-height: 1.6; }}
+    /* Input fields */
+    input[type="text"], input[type="password"], textarea {
+        background-color: var(--input-bg) !important;
+        color: var(--text-color) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+    }
 
-        /* Input fields */
-        input[type="text"], input[type="password"], textarea {{
-            background-color: {input_bg} !important;
-            color: {text_color} !important;
-            border: 1px solid {border} !important;
-            border-radius: 8px !important;
-        }}
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: var(--expander-bg) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text-color) !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stExpander"] details > div {
+        background-color: var(--expander-content-bg);
+        border: 1px solid var(--border);
+        border-top: none;
+        padding: 20px;
+    }
 
-        /* Expanders */
-        .streamlit-expanderHeader {{
-            background-color: {expander_bg} !important;
-            border: 1px solid {border} !important;
-            color: {text_color} !important;
-            border-radius: 8px !important;
-        }}
-        div[data-testid="stExpander"] details > div {{
-            background-color: {expander_content_bg};
-            border: 1px solid {border};
-            border-top: none;
-            padding: 20px;
-        }}
+    /* Stat boxes */
+    .stat-box { background: var(--stat-box-bg); padding: 15px; border-radius: 8px; text-align: center; border: 1px solid var(--border); }
+    .stat-val { font-size: 1.5rem; font-weight: 800; color: var(--text-color); }
+    .stat-lbl { font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); }
 
-        /* Stat boxes */
-        .stat-box {{ background: {stat_box_bg}; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid {border}; }}
-        .stat-val {{ font-size: 1.5rem; font-weight: 800; color: {text_color}; }}
-        .stat-lbl {{ font-size: 0.8rem; text-transform: uppercase; color: {text_dim}; }}
+    /* Metrics (st.metric) */
+    div[data-testid="stMetricValue"] {
+        color: var(--text-color) !important;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: var(--text-dim) !important;
+    }
 
-        /* Metrics (st.metric) */
-        div[data-testid="stMetricValue"] {{
-            color: {text_color} !important;
-        }}
-        div[data-testid="stMetricLabel"] {{
-            color: {text_dim} !important;
-        }}
+    /* Tabs */
+    button[data-baseweb="tab"] {
+        color: var(--text-color) !important;
+    }
+    div[data-testid="stTabs"] {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+    }
 
-        /* Tabs */
-        button[data-baseweb="tab"] {{
-            color: {text_color} !important;
-        }}
-        div[data-testid="stTabs"] {{
-            background-color: {card_bg};
-            border: 1px solid {border};
-            border-radius: 8px;
-            padding: 10px;
-        }}
+    /* Select slider */
+    div[data-testid="stSlider"] {
+        color: var(--text-color);
+    }
 
-        /* Select slider */
-        div[data-testid="stSlider"] {{
-            color: {text_color};
-        }}
-
-        #MainMenu, footer, header {{ visibility: hidden; }}
-    </style>
-    """
+    #MainMenu, footer, header { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
 
 # --- AUTH LOGIC ---
 def register_user(email, fullname, password, role, sq, sa):
@@ -384,7 +342,101 @@ def verify_security_answer(email, answer):
 def update_password(email, new_password):
     return run_query("UPDATE users SET password = ? WHERE email = ?", (hash_password(new_password), email))
 
-# --- ENHANCED PDF REPORT GENERATOR ---
+# --- EXPORT FUNCTIONS ---
+def generate_markdown(engine, filename):
+    """Generate a Markdown string with all analysis details for a paper."""
+    md = f"# PaperIQ Analysis Report: {filename}\n\n"
+    md += f"## Final Composite Score: {engine.scores['Composite']:.2f}/100\n\n"
+    md += "### Scores\n"
+    for key, val in engine.scores.items():
+        if key != "Composite":
+            md += f"- **{key}**: {val:.2f}/100\n"
+    md += "\n### Text Statistics\n"
+    md += f"- Words: {engine.stats['word_count']}\n"
+    md += f"- Sentences: {engine.stats['sentence_count']}\n"
+    md += f"- Avg Sentence Length: {engine.stats['avg_sentence_len']:.2f}\n"
+    md += f"- Avg Word Length: {engine.stats['avg_word_len']:.2f}\n"
+    md += f"- Vocabulary Diversity: {engine.stats.get('vocab_diversity', 0):.2f}\n"
+    md += f"- Complex Word Ratio: {engine.stats.get('complex_word_ratio', 0):.2f}\n\n"
+    md += f"### Domain\n{engine.domain}\n\n"
+    md += "### Keywords\n"
+    if engine.present_keywords:
+        md += f"- Present: {', '.join(engine.present_keywords)}\n"
+    if engine.missing_keywords:
+        md += f"- Missing: {', '.join(engine.missing_keywords)}\n"
+    if not engine.present_keywords and not engine.missing_keywords:
+        md += "- No keywords provided.\n"
+    md += "\n### Top 10 Words (excluding stopwords)\n"
+    for word, count in engine.word_freq[:10]:
+        md += f"- {word}: {count}\n"
+    md += "\n### Sentiment\n"
+    sentiment = engine.sentiment
+    if sentiment > 0.05:
+        label = "Positive"
+    elif sentiment < -0.05:
+        label = "Negative"
+    else:
+        label = "Neutral"
+    md += f"- Polarity: {sentiment:.2f} ({label})\n\n"
+    md += "### Section Summaries (Medium)\n"
+    for title in ['Abstract', 'Introduction', 'Methodology', 'Results', 'Conclusion']:
+        summary = engine.ai_summaries.get(title, {}).get('Medium', 'N/A')
+        md += f"**{title}**\n\n{summary}\n\n"
+    if engine.issues:
+        md += "### Long Sentences (>30 words)\n"
+        for i, s in enumerate(engine.issues[:5]):
+            md += f"{i+1}. {s}\n"
+        if len(engine.issues) > 5:
+            md += f"\n... and {len(engine.issues)-5} more.\n"
+    suggestions = engine._generate_suggestions()
+    if suggestions:
+        md += "\n### Vocabulary Suggestions\n"
+        for s in suggestions:
+            md += f"- {s}\n"
+    return md
+
+def generate_combined_pdf(analyses):
+    """Generate a PDF report containing all papers."""
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    for filename, engine in analyses.items():
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt=f"PaperIQ Analysis Report: {filename}", ln=1, align='C')
+        pdf.ln(5)
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(200, 10, txt=f"Final Composite Score: {engine.scores['Composite']:.2f}/100", ln=1)
+        pdf.ln(5)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(200, 10, txt="Scores:", ln=1)
+        pdf.set_font("Arial", size=12)
+        for key, val in engine.scores.items():
+            if key != "Composite":
+                pdf.cell(200, 10, txt=f"  {key}: {val:.2f}/100", ln=1)
+        pdf.ln(5)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(200, 10, txt="Text Statistics:", ln=1)
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt=f"  Words: {engine.stats['word_count']}", ln=1)
+        pdf.cell(200, 10, txt=f"  Sentences: {engine.stats['sentence_count']}", ln=1)
+        pdf.cell(200, 10, txt=f"  Avg Sentence Length: {engine.stats['avg_sentence_len']:.2f}", ln=1)
+        pdf.cell(200, 10, txt=f"  Avg Word Length: {engine.stats['avg_word_len']:.2f}", ln=1)
+        pdf.ln(3)
+        # Section summaries (Medium)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(200, 10, txt="Section Summaries (Medium):", ln=1)
+        pdf.set_font("Arial", size=10)
+        for title in ['Abstract', 'Introduction', 'Methodology', 'Results', 'Conclusion']:
+            summary = engine.ai_summaries.get(title, {}).get('Medium', 'N/A')
+            safe_title = title.encode('latin-1', 'replace').decode('latin-1')
+            safe_summary = summary.encode('latin-1', 'replace').decode('latin-1')
+            pdf.multi_cell(0, 10, txt=f"[{safe_title}]")
+            pdf.multi_cell(0, 10, txt=safe_summary)
+            pdf.ln(2)
+        pdf.ln(3)
+    return pdf.output(dest='S').encode('latin-1')
+
+# --- PDF REPORT GENERATOR (single paper) ---
 def create_pdf_report(filename, engine):
     pdf = FPDF()
     pdf.add_page()
@@ -474,7 +526,6 @@ def create_pdf_report(filename, engine):
         pdf.cell(200, 10, txt="Vocabulary Suggestions:", ln=1)
         pdf.set_font("Arial", size=10)
         for s in suggestions:
-            # Replace bullet with hyphen for safety
             s_safe = s.replace('\u2022', '-').encode('latin-1', 'replace').decode('latin-1')
             pdf.multi_cell(0, 10, txt=f"  - {s_safe}")
         pdf.ln(5)
@@ -484,7 +535,7 @@ def create_pdf_report(filename, engine):
         pdf.set_font("Arial", 'B', 12)
         pdf.cell(200, 10, txt="Long Sentences (>30 words):", ln=1)
         pdf.set_font("Arial", size=10)
-        for i, s in enumerate(engine.issues[:5]):  # limit to first 5
+        for i, s in enumerate(engine.issues[:5]):
             s_safe = s.encode('latin-1', 'replace').decode('latin-1')
             pdf.multi_cell(0, 10, txt=f"  {i+1}. {s_safe}")
         if len(engine.issues) > 5:
@@ -1001,10 +1052,10 @@ def register_page():
             st.session_state.page = 'login'
             st.rerun()
 
-# --- DASHBOARD VIEW ---
+# --- DASHBOARD VIEW (updated for batch processing) ---
 def dashboard_view():
     st.markdown("### Dashboard")
-    # Updated Info Card as requested
+    # Info Card
     st.markdown("""
         <div class='info-card'>
             <div class='info-title'>📄 PaperIQ – AI Academic Writing Analyzer</div>
@@ -1016,19 +1067,19 @@ def dashboard_view():
         </div>
     """, unsafe_allow_html=True)
 
-    # Upload area
+    # Upload area (multiple files)
     col_up, col_man = st.columns(2)
     with col_up:
-        st.markdown("#### Option A: Upload PDF")
-        uploaded_file = st.file_uploader("Drop your file here", type="pdf")
+        st.markdown("#### Option A: Upload PDF(s)")
+        uploaded_files = st.file_uploader("Drop your file(s) here", type="pdf", accept_multiple_files=True)
     with col_man:
         st.markdown("#### Option B: Manual Input")
         paper_title = st.text_input("Paper Title")
         user_keywords = st.text_input("Keywords (comma separated)")
         manual_abstract = st.text_area("Paste Abstract Text", height=100)
 
-    # Summary settings slider
-    if uploaded_file or manual_abstract:
+    # Summary settings slider (common for all)
+    if uploaded_files or manual_abstract:
         st.markdown("#### Summary Settings")
         length_option = st.select_slider(
             "Summary Detail Level",
@@ -1038,30 +1089,51 @@ def dashboard_view():
         )
         st.session_state.summary_length = length_option
 
-    if st.button("Analyze Paper", key='analyze_btn'):
-        engine = InsightEngine()
-        if uploaded_file:
-            with st.spinner("AI is reading & summarizing..."):
-                engine.process_pdf(uploaded_file.read(), user_keywords)
-                st.session_state.current_analysis = engine
-                st.session_state.current_filename = uploaded_file.name
-                run_query("INSERT INTO upload_history (user_email, file_name, page_count, word_count) VALUES (?, ?, ?, ?)",
-                          (st.session_state.user_email, uploaded_file.name, engine.stats['pages'], engine.stats['words']))
-        elif manual_abstract:
-            with st.spinner("AI is reading & summarizing..."):
-                engine.process_text(manual_abstract, user_keywords)
-                st.session_state.current_analysis = engine
-                st.session_state.current_filename = paper_title if paper_title else "Manual Text"
-        else:
-            st.error("Please Upload a PDF or Enter Text to analyze.")
+    if st.button("Analyze Paper(s)", key='analyze_btn'):
+        # Clear previous analyses
+        st.session_state.analyses = {}
+        st.session_state.current_filename = ""
 
-    # Display results if available
-    if st.session_state.current_analysis:
-        eng = st.session_state.current_analysis
+        # Process manual input first (if any)
+        if manual_abstract:
+            with st.spinner("Analyzing manual text..."):
+                engine = InsightEngine()
+                engine.process_text(manual_abstract, user_keywords)
+                fname = paper_title if paper_title else "Manual Text"
+                st.session_state.analyses[fname] = engine
+                st.session_state.current_filename = fname
+
+        # Process each uploaded PDF
+        if uploaded_files:
+            progress_bar = st.progress(0)
+            for i, uploaded_file in enumerate(uploaded_files):
+                with st.spinner(f"Analyzing {uploaded_file.name}..."):
+                    engine = InsightEngine()
+                    engine.process_pdf(uploaded_file.read(), user_keywords)
+                    st.session_state.analyses[uploaded_file.name] = engine
+                    # Log upload history
+                    run_query("INSERT INTO upload_history (user_email, file_name, page_count, word_count) VALUES (?, ?, ?, ?)",
+                              (st.session_state.user_email, uploaded_file.name, engine.stats['pages'], engine.stats['words']))
+                progress_bar.progress((i + 1) / len(uploaded_files))
+            # Set current filename to first uploaded file if manual didn't set
+            if not st.session_state.current_filename and uploaded_files:
+                st.session_state.current_filename = uploaded_files[0].name
+
+        if not uploaded_files and not manual_abstract:
+            st.error("Please upload at least one PDF or enter text to analyze.")
+
+    # Display results if any analyses exist
+    if st.session_state.analyses:
+        # Paper selector
+        paper_names = list(st.session_state.analyses.keys())
+        selected = st.selectbox("Select paper to view", paper_names, index=paper_names.index(st.session_state.current_filename) if st.session_state.current_filename in paper_names else 0)
+        st.session_state.current_filename = selected
+        eng = st.session_state.analyses[selected]
+
         st.markdown("---")
         st.markdown(f"### Results: {st.session_state.current_filename}")
 
-        # Quick TL;DR - dynamic based on slider selection
+        # Quick TL;DR
         selected_len = st.session_state.summary_length
         tldr = eng.paper_summaries.get(selected_len, eng.paper_tldr)
         st.info(f"AI Quick Summary (TL;DR): {tldr}")
@@ -1077,16 +1149,25 @@ def dashboard_view():
         with col4:
             st.metric("Reasoning", f"{eng.scores['Reasoning']:.2f}/100")
 
-        # Download PDF button (using enhanced report)
-        pdf_bytes = create_pdf_report(st.session_state.current_filename, eng)
-        st.download_button("Download PDF Report", data=pdf_bytes, file_name="PaperIQ_Report.pdf", mime="application/pdf")
+        # Download options for this paper
+        col_d1, col_d2, col_d3 = st.columns(3)
+        with col_d1:
+            pdf_bytes = create_pdf_report(st.session_state.current_filename, eng)
+            st.download_button("📄 Download PDF Report", data=pdf_bytes, file_name=f"{st.session_state.current_filename}_report.pdf", mime="application/pdf")
+        with col_d2:
+            md_str = generate_markdown(eng, st.session_state.current_filename)
+            st.download_button("📝 Download Markdown", data=md_str, file_name=f"{st.session_state.current_filename}_report.md", mime="text/markdown")
+        with col_d3:
+            if len(st.session_state.analyses) > 1:
+                combined_pdf = generate_combined_pdf(st.session_state.analyses)
+                st.download_button("📚 Combined PDF (all papers)", data=combined_pdf, file_name="all_papers_report.pdf", mime="application/pdf")
 
         st.markdown("---")
 
-        # Tabs (matches the 6 tabs from user's provided code)
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        # Tabs (existing six tabs + new Q&A tab)
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
             "Visualizations", "Section Summaries", "Issues",
-            "Suggestions", "Detailed Metrics", "Sentiment"
+            "Suggestions", "Detailed Metrics", "Sentiment", "Cross‑Document Q&A"
         ])
 
         with tab1:
@@ -1113,7 +1194,6 @@ def dashboard_view():
                 fig_bar.update_layout(title="Average Lengths", height=350, showlegend=True)
                 st.plotly_chart(fig_bar, width='stretch')
 
-        # --- Section Summaries tab with three sub-tabs ---
         with tab2:
             st.subheader("Section Overview")
             sub_tab1, sub_tab2, sub_tab3 = st.tabs([
@@ -1127,7 +1207,6 @@ def dashboard_view():
                 selected_len = st.session_state.summary_length
                 for section in ['Abstract', 'Introduction', 'Methodology', 'Results', 'Conclusion']:
                     summaries = eng.ai_summaries.get(section, {})
-                    # Gets the short, medium, or long summary dynamically based on slider!
                     summary = summaries.get(selected_len, 'N/A')
                     detected = eng.section_detected_flag.get(section, False)
                     status = "Detected" if detected else "Inferred"
@@ -1194,6 +1273,39 @@ def dashboard_view():
                 sentiment_label = "Neutral"
             st.metric("Sentiment Polarity", f"{sentiment:.2f} ({sentiment_label})")
 
+        with tab7:
+            st.subheader("Cross‑Document Q&A")
+            st.markdown("Ask a question and get answers from all uploaded papers.")
+            question = st.text_input("Your question")
+            if question and st.button("Search"):
+                # Build a list of sentences from all papers with metadata
+                all_sentences = []
+                metadata = []  # (filename, section?) maybe just filename
+                for fname, engine in st.session_state.analyses.items():
+                    blob = TextBlob(engine.full_text)
+                    for sent in blob.sentences:
+                        all_sentences.append(str(sent))
+                        metadata.append(fname)
+                if not all_sentences:
+                    st.warning("No text available.")
+                else:
+                    # Vectorize sentences and query
+                    vectorizer = TfidfVectorizer(stop_words='english')
+                    try:
+                        sent_vectors = vectorizer.fit_transform(all_sentences)
+                        query_vec = vectorizer.transform([question])
+                        similarities = cosine_similarity(query_vec, sent_vectors).flatten()
+                        top_indices = similarities.argsort()[-5:][::-1]  # top 5
+                        st.markdown("**Top relevant excerpts:**")
+                        for idx in top_indices:
+                            if similarities[idx] > 0.1:  # threshold
+                                st.info(f"**{metadata[idx]}** (score: {similarities[idx]:.2f})\n\n{all_sentences[idx]}")
+                            else:
+                                st.markdown("*No highly relevant sentences found.*")
+                                break
+                    except Exception as e:
+                        st.error(f"Error in search: {e}")
+
         # Save to Library (optional)
         if st.button("Save to Library"):
             run_query("INSERT INTO saved_papers (user_email, file_name, summary_abstract) VALUES (?, ?, ?)",
@@ -1233,11 +1345,8 @@ if not st.session_state.logged_in:
     elif st.session_state.page == 'forgot_pwd':
         forgot_password_page()
 else:
-    # Apply theme CSS
-    st.markdown(get_css(st.session_state.theme), unsafe_allow_html=True)
-
-    # Top navigation with equal spacing (6 columns)
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    # Top navigation with equal spacing (5 columns, theme toggle removed)
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         if st.button("Dashboard", key="nav_dash"):
             st.session_state.menu_selection = 'Dashboard'

@@ -1,5 +1,10 @@
 streamlit
 pymupdf
-pdfplumber
-mysql-connector-python
+textblob
+plotly
+fpdf
+scikit-learn
+transformers
+torch  # if using transformers
 pandas
+numpy
