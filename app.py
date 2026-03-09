@@ -10,10 +10,20 @@ import pandas as pd
 import heapq
 from textblob import TextBlob
 import plotly.graph_objects as go
+import plotly.express as px
 from fpdf import FPDF
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+import spacy
+from spacy.lang.en import English
+
+# --- SPACY MODEL LOADING ---
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    st.error("SpaCy model 'en_core_web_sm' not found. Please run: python -m spacy download en_core_web_sm")
+    st.stop()
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -342,6 +352,13 @@ def verify_security_answer(email, answer):
 def update_password(email, new_password):
     return run_query("UPDATE users SET password = ? WHERE email = ?", (hash_password(new_password), email))
 
+# --- SAFE TEXT ENCODING FOR PDF EXPORT (prevents Unicode crashes) ---
+def safe_text(text):
+    """Convert any text to latin-1 safely, replacing unsupported characters."""
+    if not isinstance(text, str):
+        text = str(text)
+    return text.encode('latin-1', errors='replace').decode('latin-1')
+
 # --- EXPORT FUNCTIONS ---
 def generate_markdown(engine, filename):
     """Generate a Markdown string with all analysis details for a paper."""
@@ -402,36 +419,34 @@ def generate_combined_pdf(analyses):
     for filename, engine in analyses.items():
         pdf.add_page()
         pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt=f"PaperIQ Analysis Report: {filename}", ln=1, align='C')
+        pdf.cell(200, 10, txt=safe_text(f"PaperIQ Analysis Report: {filename}"), ln=1, align='C')
         pdf.ln(5)
         pdf.set_font("Arial", 'B', 14)
-        pdf.cell(200, 10, txt=f"Final Composite Score: {engine.scores['Composite']:.2f}/100", ln=1)
+        pdf.cell(200, 10, txt=safe_text(f"Final Composite Score: {engine.scores['Composite']:.2f}/100"), ln=1)
         pdf.ln(5)
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(200, 10, txt="Scores:", ln=1)
+        pdf.cell(200, 10, txt=safe_text("Scores:"), ln=1)
         pdf.set_font("Arial", size=12)
         for key, val in engine.scores.items():
             if key != "Composite":
-                pdf.cell(200, 10, txt=f"  {key}: {val:.2f}/100", ln=1)
+                pdf.cell(200, 10, txt=safe_text(f"  {key}: {val:.2f}/100"), ln=1)
         pdf.ln(5)
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(200, 10, txt="Text Statistics:", ln=1)
+        pdf.cell(200, 10, txt=safe_text("Text Statistics:"), ln=1)
         pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt=f"  Words: {engine.stats['word_count']}", ln=1)
-        pdf.cell(200, 10, txt=f"  Sentences: {engine.stats['sentence_count']}", ln=1)
-        pdf.cell(200, 10, txt=f"  Avg Sentence Length: {engine.stats['avg_sentence_len']:.2f}", ln=1)
-        pdf.cell(200, 10, txt=f"  Avg Word Length: {engine.stats['avg_word_len']:.2f}", ln=1)
+        pdf.cell(200, 10, txt=safe_text(f"  Words: {engine.stats['word_count']}"), ln=1)
+        pdf.cell(200, 10, txt=safe_text(f"  Sentences: {engine.stats['sentence_count']}"), ln=1)
+        pdf.cell(200, 10, txt=safe_text(f"  Avg Sentence Length: {engine.stats['avg_sentence_len']:.2f}"), ln=1)
+        pdf.cell(200, 10, txt=safe_text(f"  Avg Word Length: {engine.stats['avg_word_len']:.2f}"), ln=1)
         pdf.ln(3)
         # Section summaries (Medium)
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(200, 10, txt="Section Summaries (Medium):", ln=1)
+        pdf.cell(200, 10, txt=safe_text("Section Summaries (Medium):"), ln=1)
         pdf.set_font("Arial", size=10)
         for title in ['Abstract', 'Introduction', 'Methodology', 'Results', 'Conclusion']:
             summary = engine.ai_summaries.get(title, {}).get('Medium', 'N/A')
-            safe_title = title.encode('latin-1', 'replace').decode('latin-1')
-            safe_summary = summary.encode('latin-1', 'replace').decode('latin-1')
-            pdf.multi_cell(0, 10, txt=f"[{safe_title}]")
-            pdf.multi_cell(0, 10, txt=safe_summary)
+            pdf.multi_cell(0, 10, txt=safe_text(f"[{title}]"))
+            pdf.multi_cell(0, 10, txt=safe_text(summary))
             pdf.ln(2)
         pdf.ln(3)
     return pdf.output(dest='S').encode('latin-1')
@@ -441,58 +456,58 @@ def create_pdf_report(filename, engine):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt=f"PaperIQ Analysis Report: {filename}", ln=1, align='C')
+    pdf.cell(200, 10, txt=safe_text(f"PaperIQ Analysis Report: {filename}"), ln=1, align='C')
     pdf.ln(10)
 
     # Composite score
     pdf.set_font("Arial", 'B', 14)
-    pdf.cell(200, 10, txt=f"Final Composite Score: {engine.scores['Composite']:.2f}/100", ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"Final Composite Score: {engine.scores['Composite']:.2f}/100"), ln=1)
     pdf.ln(5)
 
     # All scores
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt="Scores:", ln=1)
+    pdf.cell(200, 10, txt=safe_text("Scores:"), ln=1)
     pdf.set_font("Arial", size=12)
     for key, val in engine.scores.items():
         if key != "Composite":
-            pdf.cell(200, 10, txt=f"  {key}: {val:.2f}/100", ln=1)
+            pdf.cell(200, 10, txt=safe_text(f"  {key}: {val:.2f}/100"), ln=1)
     pdf.ln(5)
 
     # Basic statistics
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt="Text Statistics:", ln=1)
+    pdf.cell(200, 10, txt=safe_text("Text Statistics:"), ln=1)
     pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt=f"  Words: {engine.stats['word_count']}", ln=1)
-    pdf.cell(200, 10, txt=f"  Sentences: {engine.stats['sentence_count']}", ln=1)
-    pdf.cell(200, 10, txt=f"  Avg Sentence Length: {engine.stats['avg_sentence_len']:.2f}", ln=1)
-    pdf.cell(200, 10, txt=f"  Avg Word Length: {engine.stats['avg_word_len']:.2f}", ln=1)
-    pdf.cell(200, 10, txt=f"  Vocabulary Diversity: {engine.stats.get('vocab_diversity', 0):.2f}", ln=1)
-    pdf.cell(200, 10, txt=f"  Complex Word Ratio: {engine.stats.get('complex_word_ratio', 0):.2f}", ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"  Words: {engine.stats['word_count']}"), ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"  Sentences: {engine.stats['sentence_count']}"), ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"  Avg Sentence Length: {engine.stats['avg_sentence_len']:.2f}"), ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"  Avg Word Length: {engine.stats['avg_word_len']:.2f}"), ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"  Vocabulary Diversity: {engine.stats.get('vocab_diversity', 0):.2f}"), ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"  Complex Word Ratio: {engine.stats.get('complex_word_ratio', 0):.2f}"), ln=1)
     pdf.ln(5)
 
     # Domain
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt=f"Domain: {engine.domain}", ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"Domain: {engine.domain}"), ln=1)
     pdf.ln(5)
 
     # Keywords
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt="Keywords:", ln=1)
+    pdf.cell(200, 10, txt=safe_text("Keywords:"), ln=1)
     pdf.set_font("Arial", size=12)
     if engine.present_keywords:
-        pdf.cell(200, 10, txt=f"  Present: {', '.join(engine.present_keywords)}", ln=1)
+        pdf.cell(200, 10, txt=safe_text(f"  Present: {', '.join(engine.present_keywords)}"), ln=1)
     if engine.missing_keywords:
-        pdf.cell(200, 10, txt=f"  Missing: {', '.join(engine.missing_keywords)}", ln=1)
+        pdf.cell(200, 10, txt=safe_text(f"  Missing: {', '.join(engine.missing_keywords)}"), ln=1)
     if not engine.present_keywords and not engine.missing_keywords:
-        pdf.cell(200, 10, txt="  No keywords provided.", ln=1)
+        pdf.cell(200, 10, txt=safe_text("  No keywords provided."), ln=1)
     pdf.ln(5)
 
     # Top word frequency
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt="Top 10 Words (excluding stopwords):", ln=1)
+    pdf.cell(200, 10, txt=safe_text("Top 10 Words (excluding stopwords):"), ln=1)
     pdf.set_font("Arial", size=12)
     for word, count in engine.word_freq[:10]:
-        pdf.cell(200, 10, txt=f"  {word}: {count}", ln=1)
+        pdf.cell(200, 10, txt=safe_text(f"  {word}: {count}"), ln=1)
     pdf.ln(5)
 
     # Sentiment
@@ -504,51 +519,49 @@ def create_pdf_report(filename, engine):
     else:
         sentiment_label = "Neutral"
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt=f"Sentiment: {sentiment:.2f} ({sentiment_label})", ln=1)
+    pdf.cell(200, 10, txt=safe_text(f"Sentiment: {sentiment:.2f} ({sentiment_label})"), ln=1)
     pdf.ln(5)
 
     # Section summaries (Medium length)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt="Section Summaries (Medium length):", ln=1)
+    pdf.cell(200, 10, txt=safe_text("Section Summaries (Medium length):"), ln=1)
     pdf.set_font("Arial", size=10)
     for title in ['Abstract', 'Introduction', 'Methodology', 'Results', 'Conclusion']:
         summary = engine.ai_summaries.get(title, {}).get('Medium', 'N/A')
-        safe_title = title.encode('latin-1', 'replace').decode('latin-1')
-        safe_summary = summary.encode('latin-1', 'replace').decode('latin-1')
-        pdf.multi_cell(0, 10, txt=f"[{safe_title}]")
-        pdf.multi_cell(0, 10, txt=safe_summary)
+        pdf.multi_cell(0, 10, txt=safe_text(f"[{title}]"))
+        pdf.multi_cell(0, 10, txt=safe_text(summary))
         pdf.ln(3)
 
     # Suggestions
     suggestions = engine._generate_suggestions()
     if suggestions:
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(200, 10, txt="Vocabulary Suggestions:", ln=1)
+        pdf.cell(200, 10, txt=safe_text("Vocabulary Suggestions:"), ln=1)
         pdf.set_font("Arial", size=10)
         for s in suggestions:
-            s_safe = s.replace('\u2022', '-').encode('latin-1', 'replace').decode('latin-1')
+            s_safe = safe_text(s.replace('\u2022', '-'))
             pdf.multi_cell(0, 10, txt=f"  - {s_safe}")
         pdf.ln(5)
 
     # Long sentences (issues)
     if engine.issues:
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(200, 10, txt="Long Sentences (>30 words):", ln=1)
+        pdf.cell(200, 10, txt=safe_text("Long Sentences (>30 words):"), ln=1)
         pdf.set_font("Arial", size=10)
         for i, s in enumerate(engine.issues[:5]):
-            s_safe = s.encode('latin-1', 'replace').decode('latin-1')
+            s_safe = safe_text(s)
             pdf.multi_cell(0, 10, txt=f"  {i+1}. {s_safe}")
         if len(engine.issues) > 5:
-            pdf.cell(200, 10, txt=f"  ... and {len(engine.issues)-5} more.", ln=1)
+            pdf.cell(200, 10, txt=safe_text(f"  ... and {len(engine.issues)-5} more."), ln=1)
         pdf.ln(5)
 
     return pdf.output(dest='S').encode('latin-1')
 
-# --- CORE ENGINE (Improved scoring) ---
+# --- CORE ENGINE (Improved with spaCy and cleaning) ---
 class InsightEngine:
     def __init__(self):
-        self.full_text = ""
-        self.clean_text_content = ""
+        self.full_text = ""          # raw text from PDF
+        self.clean_text = ""          # after cleaning (headers, footers, code, etc.)
         self.sections_detected = {}
         self.mandatory_map = {'Abstract': '', 'Introduction': '', 'Methodology': '', 'Results': '', 'Conclusion': ''}
         self.section_detected_flag = {k: False for k in self.mandatory_map}
@@ -564,19 +577,175 @@ class InsightEngine:
         # New scoring attributes
         self.scores = {}
         self.sentiment = 0.0
-        self.issues = []
+        self.issues = []  # long sentences (real ones)
+        # spaCy processed data
+        self.doc = None
+        self.sentences = []   # list of sentence strings (cleaned)
+        self.words = []       # list of word strings (cleaned)
 
+    # ------------------------------
+    # Cleaning methods
+    # ------------------------------
+    def _remove_headers_footers(self, text):
+        """Remove common headers/footers like page numbers, running titles."""
+        lines = text.split('\n')
+        cleaned = []
+        for line in lines:
+            line_strip = line.strip()
+            # Skip page numbers (digits)
+            if re.match(r'^\s*\d+\s*$', line_strip):
+                continue
+            cleaned.append(line)
+        return '\n'.join(cleaned)
+
+    def _remove_roman_numeral_lines(self, text):
+        """Remove lines that consist solely of Roman numerals (page numbering)."""
+        roman_numerals = {
+            'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
+            'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx'
+        }
+        lines = text.split('\n')
+        cleaned = []
+        for line in lines:
+            line_strip = line.strip().lower()
+            if line_strip in roman_numerals:
+                continue
+            cleaned.append(line)
+        return '\n'.join(cleaned)
+
+    def _remove_structural_markers(self, text):
+        """Remove lines that contain common structural markers (e.g., chapter headings, figure captions)."""
+        structural_keywords = [
+            'CHAPTER', 'FIGURE', 'TABLE', 'LIST OF', 'CERTIFICATE', 'DECLARATION',
+            'ACKNOWLEDGEMENT', 'ARCHITECTURE DIAGRAM', 'USE CASE DIAGRAM', 'CLASS DIAGRAM',
+            'SEQUENCE DIAGRAM', 'ACKNOWLEDGMENTS'
+        ]
+        lines = text.split('\n')
+        cleaned = []
+        for line in lines:
+            line_upper = line.strip().upper()
+            # If line contains any of the structural keywords, skip it
+            if any(kw in line_upper for kw in structural_keywords):
+                continue
+            cleaned.append(line)
+        return '\n'.join(cleaned)
+
+    def _remove_metadata_lines(self, text):
+        """
+        Remove lines that are likely metadata or document structure
+        (title page, affiliation, declaration, etc.) based on keywords and patterns.
+        """
+        metadata_patterns = [
+            r'\bBACHELOR\b', r'\bMASTER\b', r'\bDOCTOR\b', r'\bENGINEERING\b',
+            r'\bTECHNOLOGY\b', r'\bSCIENCE\b', r'\bARTS\b', r'\bUNIVERSITY\b',
+            r'\bCOLLEGE\b', r'\bINSTITUTE\b', r'\bSCHOOL\b', r'\bACADEMY\b',
+            r'\bSUBMITTED BY\b', r'\bUNDER THE GUIDANCE OF\b', r'\bIN PARTIAL FULFILLMENT\b',
+            r'\bFOR THE AWARD OF\b', r'\bDECLARATION\b', r'\bCERTIFICATE\b',
+            r'\bACKNOWLEDGEMENT\b', r'\bACKNOWLEDGMENTS\b', r'\bDR\.', r'\bPROF\.',
+            r'\bMR\.', r'\bMRS\.', r'\bMS\.', r'\bROLL NO\b', r'\bREGISTRATION NO\b',
+            r'\bENROLLMENT NO\b'
+        ]
+        # Compile regex (case-insensitive)
+        pattern = re.compile('|'.join(metadata_patterns), re.IGNORECASE)
+
+        lines = text.split('\n')
+        cleaned = []
+        for line in lines:
+            line_strip = line.strip()
+            if not line_strip:
+                cleaned.append(line)
+                continue
+
+            # Skip lines containing metadata keywords
+            if pattern.search(line_strip):
+                continue
+
+            # Skip lines that are all uppercase and longer than 20 characters (likely institution names)
+            if line_strip.isupper() and len(line_strip) > 20:
+                continue
+
+            # Skip lines that consist mainly of degree abbreviations (e.g., "B.Tech", "M.Sc")
+            if re.match(r'^[A-Z]\.?[A-Z]\.?', line_strip):
+                continue
+
+            cleaned.append(line)
+        return '\n'.join(cleaned)
+
+    def _remove_code_blocks(self, text):
+        """Detect and remove code blocks."""
+        lines = text.split('\n')
+        in_code = False
+        cleaned = []
+        code_keywords = {'def ', 'class ', 'import ', 'from ', 'if ', 'else:', 'for ', 'while ',
+                         'return ', 'print(', '=', '{', '}'}
+        for line in lines:
+            line_lower = line.lower()
+            # Detect code start
+            if any(kw in line_lower for kw in code_keywords) or line.startswith('    '):
+                if not in_code:
+                    in_code = True
+                # skip this line
+                continue
+            else:
+                if in_code and line.strip() == '':
+                    # blank line might end code block
+                    in_code = False
+                    continue
+                elif in_code:
+                    # still inside code block, skip
+                    continue
+                else:
+                    cleaned.append(line)
+        return '\n'.join(cleaned)
+
+    def _remove_tables(self, text):
+        """Remove table-like structures (multiple spaces/tabs)."""
+        lines = text.split('\n')
+        cleaned = []
+        for line in lines:
+            # If line contains multiple spaces or tabs, might be table row
+            if re.search(r'\s{2,}', line) or '\t' in line:
+                # Could be table, but also could be normal text with spaces. We'll be conservative.
+                # For now, skip lines with more than one consecutive space (except indentation)
+                if line.count('  ') > 2:  # heuristic
+                    continue
+            cleaned.append(line)
+        return '\n'.join(cleaned)
+
+    def _extract_prose(self):
+        """After cleaning, use spaCy to get sentences and words, filtering out headings."""
+        if not self.clean_text.strip():
+            self.sentences = []
+            self.words = []
+            return
+        self.doc = nlp(self.clean_text)
+        # Get sentences, but exclude those that look like headings (short, all caps, or with digits)
+        self.sentences = []
+        for sent in self.doc.sents:
+            text = sent.text.strip()
+            # Skip if sentence is too short (< 5 words) and either all caps or contains a digit (likely heading/caption)
+            words = [token.text for token in sent if not token.is_punct]
+            if len(words) < 5 and (text.isupper() or re.search(r'\d', text)):
+                continue
+            # Also skip if it's a single word that is not a common word
+            if len(words) == 1 and words[0].lower() not in ['abstract', 'introduction', 'conclusion']:
+                continue
+            self.sentences.append(text)
+        # Get words from all sentences (excluding punctuation)
+        self.words = [token.text for token in self.doc if not token.is_punct and not token.is_space]
+
+    # ------------------------------
+    # Existing methods (adapted)
+    # ------------------------------
     def clean_text_func(self, text):
-        text = text.lower()
-        text = re.sub(r'[^\w\s]', '', text)
-        text = re.sub(r'\s+', ' ', text)
-        return text.strip()
+        # We'll keep this for backward compatibility, but we use the new cleaning pipeline.
+        return text.lower().strip()  # not used in new pipeline
 
-    def analyze_frequency(self, text):
-        words = text.split()
+    def analyze_frequency(self, words):
+        # Use self.words
         stop_words = set(['the','and','of','to','in','a','is','that','for','on','with','as','by','at','this','from','it','be','are','which','an','or'])
-        filtered_words = [w for w in words if w not in stop_words and not w.isdigit() and len(w) > 2]
-        return Counter(filtered_words).most_common(20)
+        filtered = [w for w in words if w.lower() not in stop_words and not w.isdigit() and len(w) > 2]
+        return Counter(filtered).most_common(20)
 
     def classify_domain(self, text):
         text = text.lower()
@@ -628,145 +797,121 @@ class InsightEngine:
         }
 
     def _syllable_count(self, word):
-        """Simple syllable counter based on vowel groups."""
+        # Advanced syllable counter (same as before)
         word = word.lower()
+        if len(word) <= 3:
+            return 1
+        if word.endswith('e') and not word.endswith('le') and len(word) > 3:
+            test_word = word[:-1]
+            if any(v in test_word for v in 'aeiouy'):
+                word = test_word
+        if word.endswith('ed') and len(word) > 3 and word[-3] not in 'aeiouy':
+            word = word[:-2]
+        if word.endswith('es') and len(word) > 3:
+            word = word[:-2]
         count = 0
         vowels = "aeiouy"
-        prev_is_vowel = False
-        for char in word:
-            is_vowel = char in vowels
-            if is_vowel and not prev_is_vowel:
+        prev = False
+        for ch in word:
+            is_vowel = ch in vowels
+            if is_vowel and not prev:
                 count += 1
-            prev_is_vowel = is_vowel
-        if word.endswith("e"):
-            count -= 1
-        if word.endswith("le") and len(word) > 2 and word[-3] not in vowels:
-            count += 1
+            prev = is_vowel
         return max(1, count)
 
-    def _coherence_score(self, sentences):
-        """Compute coherence as average cosine similarity between consecutive sentences using TF-IDF."""
-        if len(sentences) < 2:
+    def _coherence_score(self):
+        if len(self.sentences) < 2:
             return 100.0
         try:
             vectorizer = TfidfVectorizer(stop_words='english', max_features=100)
-            tfidf_matrix = vectorizer.fit_transform([s.lower() for s in sentences])
+            tfidf = vectorizer.fit_transform(self.sentences)
             similarities = []
-            for i in range(len(sentences) - 1):
-                sim = (tfidf_matrix[i] * tfidf_matrix[i+1].T).toarray()[0][0]
+            for i in range(len(self.sentences)-1):
+                sim = (tfidf[i] * tfidf[i+1].T).toarray()[0][0]
                 similarities.append(sim)
-            avg_sim = sum(similarities) / len(similarities) if similarities else 0
+            avg_sim = np.mean(similarities) if similarities else 0
             return max(0, min(100, avg_sim * 100))
-        except Exception:
-            # Fallback if sklearn fails (e.g., empty vocabulary)
+        except:
             return 50.0
 
-    def _reasoning_score(self, sentences, words):
-        """Detect reasoning using indicator patterns and sentence position."""
+    def _reasoning_score(self):
         reasoning_indicators = [
             'because', 'since', 'if', 'then', 'implies', 'leads to', 'causes',
             'therefore', 'thus', 'hence', 'consequently', 'as a result',
             'in order to', 'so that', 'due to', 'for this reason'
         ]
-        # Count sentences containing any indicator
-        indicator_sentences = 0
-        for sent in sentences:
+        count = 0
+        for sent in self.sentences:
             if any(ind in sent.lower() for ind in reasoning_indicators):
-                indicator_sentences += 1
+                count += 1
+        indicator_ratio = count / len(self.sentences) if self.sentences else 0
+        return min(85, indicator_ratio * 100)
 
-        # Also look for cause-effect patterns (e.g., "X causes Y")
-        pattern_score = 0
-        cause_effect_patterns = [
-            r'\b\w+\s+causes?\s+\w+',
-            r'\b\w+\s+leads?\s+to\s+\w+',
-            r'\bif\s+.+\s+then\s+.+',
-            r'\bdue\s+to\s+.+'
-        ]
-        for pattern in cause_effect_patterns:
-            if re.search(pattern, self.full_text.lower()):
-                pattern_score += 20
-
-        # Weighted score, capped at 85
-        indicator_ratio = indicator_sentences / len(sentences) if sentences else 0
-        raw_score = indicator_ratio * 60 + min(pattern_score, 40)
-        return min(85, raw_score)
-
-    def _language_score(self, words, sentences, word_count, sentence_count):
-        """Combine vocabulary diversity, sentence length, word length, and complexity."""
-        if word_count == 0 or sentence_count == 0:
+    def _language_score(self):
+        if not self.words or not self.sentences:
             return 0
-
-        # Vocabulary diversity
-        unique_words = set(w.lower() for w in words)
-        vocab_diversity = len(unique_words) / word_count
-        vocab_score = vocab_diversity * 50  # max 50 (if all words unique)
-
-        # Sentence length (ideal 15-25 words)
-        avg_sent_len = word_count / sentence_count
+        unique_words = set(w.lower() for w in self.words)
+        vocab_diversity = len(unique_words) / len(self.words)
+        vocab_score = vocab_diversity * 50
+        avg_sent_len = len(self.words) / len(self.sentences)
         if avg_sent_len < 15:
             sent_len_score = (avg_sent_len / 15) * 25
         elif avg_sent_len > 25:
             sent_len_score = max(0, 25 - (avg_sent_len - 25) * 2)
         else:
             sent_len_score = 25
-
-        # Word length (longer words often more sophisticated)
-        avg_word_len = sum(len(w) for w in words) / word_count
+        avg_word_len = sum(len(w) for w in self.words) / len(self.words)
         word_len_score = min(avg_word_len / 10, 1) * 15
-
-        # Sentence complexity (use punctuation as proxy)
-        complexity = self.full_text.count(',') + self.full_text.count(';') + self.full_text.count(':')
-        complexity_score = min(complexity / sentence_count * 10, 10)
-
+        complexity = self.clean_text.count(',') + self.clean_text.count(';') + self.clean_text.count(':')
+        complexity_score = min(complexity / len(self.sentences) * 10, 10) if self.sentences else 0
         return vocab_score + sent_len_score + word_len_score + complexity_score
 
-    def _sophistication_score(self, words, word_count):
-        """Lexical sophistication based on word length and diversity."""
-        if word_count == 0:
+    def _sophistication_score(self):
+        if not self.words:
             return 0
-        # Long words (>8 chars) are often technical
-        long_words = [w for w in words if len(w) > 8]
-        long_ratio = len(long_words) / word_count
-
-        # Average word length
-        avg_word_len = sum(len(w) for w in words) / word_count
+        long_words = [w for w in self.words if len(w) > 8]
+        long_ratio = len(long_words) / len(self.words)
+        avg_word_len = sum(len(w) for w in self.words) / len(self.words)
         word_len_component = min(avg_word_len / 10, 1) * 50
-
-        # Vocabulary diversity again
-        unique_words = set(w.lower() for w in words)
-        vocab_diversity = len(unique_words) / word_count
+        unique_words = set(w.lower() for w in self.words)
+        vocab_diversity = len(unique_words) / len(self.words)
         diversity_component = vocab_diversity * 50
-
         return word_len_component * 0.6 + diversity_component * 0.4
 
-    def _readability_score(self, words, sentences, word_count, sentence_count):
-        """Flesch Reading Ease with accurate syllable counting."""
-        if sentence_count == 0 or word_count == 0:
+    def _readability_score(self):
+        if len(self.sentences) == 0 or len(self.words) == 0:
             return 50
-        total_syllables = sum(self._syllable_count(w) for w in words)
-        score = 206.835 - 1.015 * (word_count / sentence_count) - 84.6 * (total_syllables / word_count)
+        total_syllables = sum(self._syllable_count(w) for w in self.words)
+        score = 206.835 - 1.015 * (len(self.words) / len(self.sentences)) - 84.6 * (total_syllables / len(self.words))
         return max(0, min(100, score))
 
     def compute_scores(self):
-        blob = TextBlob(self.full_text)
-        sentences = [str(s) for s in blob.sentences]
-        words = blob.words
-        word_count = len(words)
-        sentence_count = len(sentences)
-
-        if word_count == 0 or sentence_count == 0:
+        if not self.sentences:
             self.scores = {k: 0 for k in ['Language', 'Coherence', 'Reasoning',
                                           'Sophistication', 'Readability', 'Composite']}
             self.sentiment = 0
             self.issues = []
+            self.stats = {
+                'word_count': 0,
+                'sentence_count': 0,
+                'avg_sentence_len': 0,
+                'avg_word_len': 0,
+                'vocab_diversity': 0,
+                'complex_word_ratio': 0,
+                'pages': self.stats.get('pages', 0),
+                'sections': len(self.sections_detected),
+                'unique_words': 0,
+                'time': '0 min'
+            }
             return
 
-        # Basic stats (store for UI)
+        word_count = len(self.words)
+        sentence_count = len(self.sentences)
         avg_sentence_len = word_count / sentence_count
-        avg_word_len = sum(len(w) for w in words) / word_count
-        unique_words = set(w.lower() for w in words)
+        avg_word_len = sum(len(w) for w in self.words) / word_count
+        unique_words = set(w.lower() for w in self.words)
         vocab_diversity = len(unique_words) / word_count
-        complex_words = [w for w in words if len(w) > 6]
+        complex_words = [w for w in self.words if len(w) > 6]
         complex_word_ratio = len(complex_words) / word_count
 
         self.stats.update({
@@ -778,17 +923,13 @@ class InsightEngine:
             'complex_word_ratio': complex_word_ratio
         })
 
-        # Compute individual scores
-        coherence = self._coherence_score(sentences)
-        reasoning = self._reasoning_score(sentences, words)
-        language = self._language_score(words, sentences, word_count, sentence_count)
-        sophistication = self._sophistication_score(words, word_count)
-        readability = self._readability_score(words, sentences, word_count, sentence_count)
+        coherence = self._coherence_score()
+        reasoning = self._reasoning_score()
+        language = self._language_score()
+        sophistication = self._sophistication_score()
+        readability = self._readability_score()
 
-        # Normalize language to 0-100 (it may already be close, but ensure)
         language = min(100, max(0, language))
-
-        # Composite (weighted)
         composite = (language * 0.2 + coherence * 0.25 + reasoning * 0.2 +
                      sophistication * 0.15 + readability * 0.2)
 
@@ -801,14 +942,15 @@ class InsightEngine:
             'Composite': composite
         }
 
-        # Sentiment
+        # Sentiment on cleaned text
+        blob = TextBlob(self.clean_text)
         self.sentiment = blob.sentiment.polarity
 
-        # Issues (long sentences)
-        self.issues = [s for s in sentences if len(s.split()) > 30]
+        # Issues: real long sentences (>30 words)
+        self.issues = [s for s in self.sentences if len(s.split()) > 30]
 
     def _generate_suggestions(self):
-        """Return a list of context-aware suggestions."""
+        # Use cleaned text
         weak_phrases = {
             r'\bshows?\b': 'demonstrates',
             r'\bproves?\b': 'confirms',
@@ -822,10 +964,47 @@ class InsightEngine:
             r'\bwe see\b': 'we observe'
         }
         suggestions = []
+        text_lower = self.clean_text.lower()
         for pattern, replacement in weak_phrases.items():
-            if re.search(pattern, self.full_text.lower()):
+            if re.search(pattern, text_lower):
                 suggestions.append(f"Consider using '{replacement}' instead of phrases matching '{pattern}'.")
-        return suggestions[:5]  # limit to top 5
+        return suggestions[:5]
+
+    def extract_research_gaps(self):
+        gap_indicators = [
+            r'future work', r'further research', r'limitation', r'not addressed',
+            r'remains to be', r'need to investigate', r'open question', r'challenge'
+        ]
+        gaps = []
+        for sent in self.sentences:
+            sent_lower = sent.lower()
+            if any(re.search(ind, sent_lower) for ind in gap_indicators):
+                gaps.append(sent)
+        return gaps[:5]
+
+    def suggest_journal_conference(self):
+        domain_lower = self.domain.lower()
+        all_keywords = [kw.lower() for kw in self.present_keywords]
+        if 'ai' in domain_lower or 'artificial intelligence' in domain_lower:
+            return "Journal of Artificial Intelligence Research (JAIR)"
+        elif 'machine learning' in domain_lower or any('learning' in kw for kw in all_keywords):
+            return "ICML (International Conference on Machine Learning)"
+        elif 'data' in domain_lower or any('data' in kw for kw in all_keywords):
+            return "IEEE International Conference on Data Mining (ICDM)"
+        elif 'network' in domain_lower or any('network' in kw for kw in all_keywords):
+            return "IEEE/ACM Transactions on Networking"
+        elif 'security' in domain_lower or any('security' in kw for kw in all_keywords):
+            return "IEEE Symposium on Security and Privacy"
+        else:
+            return "PLOS ONE (Multidisciplinary)"
+
+    def generate_project_idea(self):
+        abstract = self.mandatory_map['Abstract'][:500]
+        idea = f"**Project Idea based on this paper:**\n\n"
+        idea += f"Develop a tool or system that {abstract[:200]}... "
+        idea += "The project could focus on implementing the proposed methodology, "
+        idea += "validating it on a new dataset, or extending it to a related domain."
+        return idea
 
     def process_pdf(self, file_bytes, user_keywords_str=""):
         doc = fitz.open(stream=file_bytes, filetype="pdf")
@@ -837,14 +1016,39 @@ class InsightEngine:
             text_blocks.extend([b[4] for b in blocks])
         self.full_text = re.sub(r'(\w+)-\n\s*(\w+)', r'\1\2', "\n".join(text_blocks))
         self.full_text = re.sub(r'\n{3,}', '\n\n', self.full_text)
+
+        # Apply cleaning pipeline
+        cleaned = self.full_text
+        cleaned = self._remove_headers_footers(cleaned)
+        cleaned = self._remove_roman_numeral_lines(cleaned)
+        cleaned = self._remove_metadata_lines(cleaned)        # <-- NEW
+        cleaned = self._remove_structural_markers(cleaned)
+        cleaned = self._remove_code_blocks(cleaned)
+        cleaned = self._remove_tables(cleaned)
+        self.clean_text = cleaned
+
+        # Extract prose sentences and words using spaCy
+        self._extract_prose()
+
+        # Proceed with analysis
         self._analyze(user_keywords_str, len(doc))
 
     def process_text(self, raw_text, user_keywords_str=""):
         self.full_text = raw_text
+        # Apply cleaning
+        cleaned = self.full_text
+        cleaned = self._remove_headers_footers(cleaned)
+        cleaned = self._remove_roman_numeral_lines(cleaned)
+        cleaned = self._remove_metadata_lines(cleaned)        # <-- NEW
+        cleaned = self._remove_structural_markers(cleaned)
+        cleaned = self._remove_code_blocks(cleaned)
+        cleaned = self._remove_tables(cleaned)
+        self.clean_text = cleaned
+        self._extract_prose()
         self._analyze(user_keywords_str, 1)
 
     def _analyze(self, user_keywords_str, page_count):
-        self.clean_text_content = self.clean_text_func(self.full_text)
+        # Section detection (using full text, because headings are needed)
         header_regex = r'(?m)^(?:\d+(?:\.\d+)*\.?\s+)?([A-Z][a-zA-Z0-9\s\-\:]+)\s*$'
         lines = self.full_text.split('\n')
         current_header = None
@@ -892,7 +1096,7 @@ class InsightEngine:
                     self.mandatory_map[mapped_key] += "\n\n" + text_content
                     self.section_detected_flag[mapped_key] = True
 
-        # Inference for missing sections (only if not already detected)
+        # Inference for missing sections
         if not self.mandatory_map['Abstract']:
             self.mandatory_map['Abstract'] = self.full_text[:1000]
         if not self.mandatory_map['Introduction']:
@@ -904,7 +1108,7 @@ class InsightEngine:
         if not self.mandatory_map['Conclusion']:
             self.mandatory_map['Conclusion'] = self._smart_infer(self.full_text, ['conclusion', 'summary', 'future'])
 
-        # Generate 3‑level summaries for sections
+        # Generate 3‑level summaries for sections (using raw section text)
         for key in self.mandatory_map:
             content = self.mandatory_map[key]
             if content and len(content) > 50:
@@ -912,34 +1116,33 @@ class InsightEngine:
             else:
                 self.ai_summaries[key] = {'Short': 'N/A', 'Medium': 'N/A', 'Long': 'N/A'}
 
-        # Generate overall paper summaries (Abstract + Introduction)
+        # Overall paper summary (using abstract + introduction)
         combined_source = self.mandatory_map['Abstract'] + "\n" + self.mandatory_map['Introduction']
         self.paper_summaries = self._generate_3_summaries(combined_source)
         self.paper_tldr = self.paper_summaries['Medium']
 
-        # Keyword matching
-        words_list = self.clean_text_content.split()
+        # Keyword matching (using cleaned words)
         if user_keywords_str:
             raw_keys = [k.strip().lower() for k in user_keywords_str.split(',') if k.strip()]
             self.unique_user_keywords = sorted(list(set(raw_keys)))
-            self.present_keywords = [k for k in self.unique_user_keywords if k in self.clean_text_content]
-            self.missing_keywords = [k for k in self.unique_user_keywords if k not in self.clean_text_content]
+            # Use cleaned text for keyword presence
+            clean_lower = self.clean_text.lower()
+            self.present_keywords = [k for k in self.unique_user_keywords if k in clean_lower]
+            self.missing_keywords = [k for k in self.unique_user_keywords if k not in clean_lower]
 
-        self.word_freq = self.analyze_frequency(self.clean_text_content)
-        self.domain = self.classify_domain(self.clean_text_content)
+        # Word frequency from cleaned words
+        self.word_freq = self.analyze_frequency(self.words)
+        self.domain = self.classify_domain(self.clean_text)
         self.stats.update({
             'pages': page_count,
             'sections': len(self.sections_detected),
-            'words': len(words_list),
-            'unique_words': len(set(words_list)),
-            'time': f"{math.ceil(len(words_list)/200)} min"
+            'words': len(self.words),
+            'unique_words': len(set(self.words)),
+            'time': f"{math.ceil(len(self.words)/200)} min"
         })
 
         # Compute scores, sentiment, issues
         self.compute_scores()
-
-    def generate_report(self):
-        return f"PaperIQ Report\nDomain: {self.domain}\nSummary: {self.mandatory_map['Abstract'][:500]}"
 
 # --- VIEWS (Login, Register, Forgot Password) ---
 def login_page():
@@ -1052,14 +1255,13 @@ def register_page():
             st.session_state.page = 'login'
             st.rerun()
 
-# --- DASHBOARD VIEW (updated for batch processing) ---
+# --- DASHBOARD VIEW (unchanged except using new engine) ---
 def dashboard_view():
     st.markdown("### Dashboard")
-    # Info Card
     st.markdown("""
         <div class='info-card'>
-            <div class='info-title'>📄 PaperIQ – AI Academic Writing Analyzer</div>
-            <div class='info-text'>PaperIQ is an AI-powered academic writing evaluation tool developed during Infosys Springboard Virtual Internship 6.0.<br><br>
+            <div class='info-title'>📄 PaperIQ – AI Powered Research Insight Analyzer</div>
+            <div class='info-text'>PaperIQ is an AI-powered research analysis tool developed during Infosys Springboard Virtual Internship 6.0.<br><br>
             It analyzes research documents and provides:<br>
             • Language Quality Score<br>
             • Coherence Score<br>
@@ -1067,7 +1269,6 @@ def dashboard_view():
         </div>
     """, unsafe_allow_html=True)
 
-    # Upload area (multiple files)
     col_up, col_man = st.columns(2)
     with col_up:
         st.markdown("#### Option A: Upload PDF(s)")
@@ -1078,7 +1279,6 @@ def dashboard_view():
         user_keywords = st.text_input("Keywords (comma separated)")
         manual_abstract = st.text_area("Paste Abstract Text", height=100)
 
-    # Summary settings slider (common for all)
     if uploaded_files or manual_abstract:
         st.markdown("#### Summary Settings")
         length_option = st.select_slider(
@@ -1090,11 +1290,9 @@ def dashboard_view():
         st.session_state.summary_length = length_option
 
     if st.button("Analyze Paper(s)", key='analyze_btn'):
-        # Clear previous analyses
         st.session_state.analyses = {}
         st.session_state.current_filename = ""
 
-        # Process manual input first (if any)
         if manual_abstract:
             with st.spinner("Analyzing manual text..."):
                 engine = InsightEngine()
@@ -1103,7 +1301,6 @@ def dashboard_view():
                 st.session_state.analyses[fname] = engine
                 st.session_state.current_filename = fname
 
-        # Process each uploaded PDF
         if uploaded_files:
             progress_bar = st.progress(0)
             for i, uploaded_file in enumerate(uploaded_files):
@@ -1111,20 +1308,16 @@ def dashboard_view():
                     engine = InsightEngine()
                     engine.process_pdf(uploaded_file.read(), user_keywords)
                     st.session_state.analyses[uploaded_file.name] = engine
-                    # Log upload history
                     run_query("INSERT INTO upload_history (user_email, file_name, page_count, word_count) VALUES (?, ?, ?, ?)",
                               (st.session_state.user_email, uploaded_file.name, engine.stats['pages'], engine.stats['words']))
                 progress_bar.progress((i + 1) / len(uploaded_files))
-            # Set current filename to first uploaded file if manual didn't set
             if not st.session_state.current_filename and uploaded_files:
                 st.session_state.current_filename = uploaded_files[0].name
 
         if not uploaded_files and not manual_abstract:
             st.error("Please upload at least one PDF or enter text to analyze.")
 
-    # Display results if any analyses exist
     if st.session_state.analyses:
-        # Paper selector
         paper_names = list(st.session_state.analyses.keys())
         selected = st.selectbox("Select paper to view", paper_names, index=paper_names.index(st.session_state.current_filename) if st.session_state.current_filename in paper_names else 0)
         st.session_state.current_filename = selected
@@ -1133,12 +1326,10 @@ def dashboard_view():
         st.markdown("---")
         st.markdown(f"### Results: {st.session_state.current_filename}")
 
-        # Quick TL;DR
         selected_len = st.session_state.summary_length
         tldr = eng.paper_summaries.get(selected_len, eng.paper_tldr)
         st.info(f"AI Quick Summary (TL;DR): {tldr}")
 
-        # Top metrics row
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Composite Score", f"{eng.scores['Composite']:.2f}/100")
@@ -1149,25 +1340,24 @@ def dashboard_view():
         with col4:
             st.metric("Reasoning", f"{eng.scores['Reasoning']:.2f}/100")
 
-        # Download options for this paper
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
             pdf_bytes = create_pdf_report(st.session_state.current_filename, eng)
-            st.download_button("📄 Download PDF Report", data=pdf_bytes, file_name=f"{st.session_state.current_filename}_report.pdf", mime="application/pdf")
+            st.download_button(" Download PDF Report", data=pdf_bytes, file_name=f"{st.session_state.current_filename}_report.pdf", mime="application/pdf")
         with col_d2:
             md_str = generate_markdown(eng, st.session_state.current_filename)
-            st.download_button("📝 Download Markdown", data=md_str, file_name=f"{st.session_state.current_filename}_report.md", mime="text/markdown")
+            st.download_button(" Download Markdown", data=md_str, file_name=f"{st.session_state.current_filename}_report.md", mime="text/markdown")
         with col_d3:
             if len(st.session_state.analyses) > 1:
                 combined_pdf = generate_combined_pdf(st.session_state.analyses)
-                st.download_button("📚 Combined PDF (all papers)", data=combined_pdf, file_name="all_papers_report.pdf", mime="application/pdf")
+                st.download_button("Combined PDF (all papers)", data=combined_pdf, file_name="all_papers_report.pdf", mime="application/pdf")
 
         st.markdown("---")
 
-        # Tabs (existing six tabs + new Q&A tab)
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
             "Visualizations", "Section Summaries", "Issues",
-            "Suggestions", "Detailed Metrics", "Sentiment", "Cross‑Document Q&A"
+            "Suggestions", "Detailed Metrics", "Sentiment",
+            "Cross‑Doc Q&A", "Advanced Insights", "Similarity"
         ])
 
         with tab1:
@@ -1181,9 +1371,8 @@ def dashboard_view():
                 fig.add_trace(go.Scatterpolar(r=values, theta=categories, fill='toself', name='Score'))
                 fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
                                   showlegend=False, height=350)
-                st.plotly_chart(fig, width='stretch')
+                st.plotly_chart(fig, use_container_width=True)
             with colb:
-                st.markdown("#### Text Statistics")
                 stats = eng.stats
                 fig_bar = go.Figure(data=[
                     go.Bar(name='Avg Sentence Len', x=['Sentence'], y=[stats['avg_sentence_len']],
@@ -1192,7 +1381,7 @@ def dashboard_view():
                            marker_color='#83c9ff')
                 ])
                 fig_bar.update_layout(title="Average Lengths", height=350, showlegend=True)
-                st.plotly_chart(fig_bar, width='stretch')
+                st.plotly_chart(fig_bar, use_container_width=True)
 
         with tab2:
             st.subheader("Section Overview")
@@ -1266,47 +1455,90 @@ def dashboard_view():
             st.subheader("Sentiment Analysis")
             sentiment = eng.sentiment
             if sentiment > 0.05:
-                sentiment_label = "Positive"
+                label = "Positive"
             elif sentiment < -0.05:
-                sentiment_label = "Negative"
+                label = "Negative"
             else:
-                sentiment_label = "Neutral"
-            st.metric("Sentiment Polarity", f"{sentiment:.2f} ({sentiment_label})")
+                label = "Neutral"
+            st.metric("Sentiment Polarity", f"{sentiment:.2f} ({label})")
 
         with tab7:
             st.subheader("Cross‑Document Q&A")
             st.markdown("Ask a question and get answers from all uploaded papers.")
             question = st.text_input("Your question")
-            if question and st.button("Search"):
-                # Build a list of sentences from all papers with metadata
-                all_sentences = []
-                metadata = []  # (filename, section?) maybe just filename
+            search_clicked = st.button("Search")
+            if search_clicked and question:
+                all_chunks = []
+                metadata = []
                 for fname, engine in st.session_state.analyses.items():
-                    blob = TextBlob(engine.full_text)
-                    for sent in blob.sentences:
-                        all_sentences.append(str(sent))
-                        metadata.append(fname)
-                if not all_sentences:
+                    # Use cleaned sentences for chunks
+                    sentences = engine.sentences
+                    chunk_size = 3
+                    overlap = 1
+                    for i in range(0, len(sentences), chunk_size - overlap):
+                        chunk = " ".join(sentences[i:i+chunk_size])
+                        if chunk.strip():
+                            all_chunks.append(chunk)
+                            metadata.append(fname)
+                if not all_chunks:
                     st.warning("No text available.")
                 else:
-                    # Vectorize sentences and query
                     vectorizer = TfidfVectorizer(stop_words='english')
                     try:
-                        sent_vectors = vectorizer.fit_transform(all_sentences)
+                        chunk_vectors = vectorizer.fit_transform(all_chunks)
                         query_vec = vectorizer.transform([question])
-                        similarities = cosine_similarity(query_vec, sent_vectors).flatten()
-                        top_indices = similarities.argsort()[-5:][::-1]  # top 5
+                        similarities = cosine_similarity(query_vec, chunk_vectors).flatten()
+                        top_indices = similarities.argsort()[-5:][::-1]
                         st.markdown("**Top relevant excerpts:**")
+                        found = False
                         for idx in top_indices:
-                            if similarities[idx] > 0.1:  # threshold
-                                st.info(f"**{metadata[idx]}** (score: {similarities[idx]:.2f})\n\n{all_sentences[idx]}")
-                            else:
-                                st.markdown("*No highly relevant sentences found.*")
-                                break
+                            if similarities[idx] > 0.1:
+                                st.info(f"**{metadata[idx]}** (score: {similarities[idx]:.2f})\n\n{all_chunks[idx]}")
+                                found = True
+                        if not found:
+                            st.markdown("*No highly relevant sentences found.*")
                     except Exception as e:
                         st.error(f"Error in search: {e}")
 
-        # Save to Library (optional)
+        with tab8:
+            st.subheader("Advanced Insights")
+            st.markdown("#### Research Gap Detection")
+            gaps = eng.extract_research_gaps()
+            if gaps:
+                for g in gaps:
+                    st.write(f"- {g}")
+            else:
+                st.info("No explicit research gaps found in the text.")
+
+            st.markdown("#### Journal / Conference Recommendation")
+            rec = eng.suggest_journal_conference()
+            st.success(f"**Recommended venue:** {rec}")
+
+            st.markdown("#### Project Idea Generator")
+            idea = eng.generate_project_idea()
+            st.info(idea)
+
+        with tab9:
+            st.subheader("Paper Similarity")
+            if len(st.session_state.analyses) < 2:
+                st.warning("Upload at least two papers to compute similarity.")
+            else:
+                names = list(st.session_state.analyses.keys())
+                texts = [st.session_state.analyses[n].clean_text for n in names]  # use cleaned text
+                vectorizer = TfidfVectorizer(stop_words='english', max_features=500)
+                try:
+                    tfidf = vectorizer.fit_transform(texts)
+                    sim_matrix = cosine_similarity(tfidf)
+                    fig = px.imshow(sim_matrix,
+                                    x=names,
+                                    y=names,
+                                    color_continuous_scale='Blues',
+                                    title="Cosine Similarity between Papers")
+                    fig.update_layout(height=500)
+                    st.plotly_chart(fig, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Could not compute similarity: {e}")
+
         if st.button("Save to Library"):
             run_query("INSERT INTO saved_papers (user_email, file_name, summary_abstract) VALUES (?, ?, ?)",
                       (st.session_state.user_email, st.session_state.current_filename,
@@ -1345,7 +1577,6 @@ if not st.session_state.logged_in:
     elif st.session_state.page == 'forgot_pwd':
         forgot_password_page()
 else:
-    # Top navigation with equal spacing (5 columns, theme toggle removed)
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         if st.button("Dashboard", key="nav_dash"):
