@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 streamlit
 pymupdf
 textblob
@@ -7,4 +8,15 @@ scikit-learn
 transformers
 torch  # if using transformers
 pandas
+=======
+streamlit
+pymupdf
+textblob
+plotly
+fpdf
+scikit-learn
+transformers
+torch  # if using transformers
+pandas
+>>>>>>> 2a5b8786faaf47ca402c90a5bd241eed2a9c2ca7
 numpy

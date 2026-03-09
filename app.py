@@ -1608,4 +1608,88 @@ else:
     elif st.session_state.menu_selection == 'History':
         history_view()
     elif st.session_state.menu_selection == 'Profile':
+        profile_view()kdown(f"<div class='info-card'><h2>{st.session_state.user_name}</h2><p>{st.session_state.user_email}</p><p>Role: {st.session_state.user_role}</p></div>", unsafe_allow_html=True)
+
+# --- MAIN APP LOGIC ---
+if not st.session_state.logged_in:
+    if st.session_state.page == 'login':
+        login_page()
+    elif st.session_state.page == 'register':
+        register_page()
+    elif st.session_state.page == 'forgot_pwd':
+        forgot_password_page()
+else:
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        if st.button("Dashboard", key="nav_dash"):
+            st.session_state.menu_selection = 'Dashboard'
+            st.rerun()
+    with c2:
+        if st.button("Saved Papers", key="nav_saved"):
+            st.session_state.menu_selection = 'Saved'
+            st.rerun()
+    with c3:
+        if st.button("Upload History", key="nav_hist"):
+            st.session_state.menu_selection = 'History'
+            st.rerun()
+    with c4:
+        if st.button("Logout", key='logout_btn'):
+            st.session_state.logged_in = False
+            st.rerun()
+    with c5:
+        if st.button(st.session_state.user_initial, key='profile_circle'):
+            st.session_state.menu_selection = 'Profile'
+            st.rerun()
+
+    st.markdown("---")
+
+    if st.session_state.menu_selection == 'Dashboard':
+        dashboard_view()
+    elif st.session_state.menu_selection == 'Saved':
+        saved_view()
+    elif st.session_state.menu_selection == 'History':
+        history_view()
+    elif st.session_state.menu_selection == 'Profile':
+        profile_view()kdown(f"<div class='info-card'><h2>{st.session_state.user_name}</h2><p>{st.session_state.user_email}</p><p>Role: {st.session_state.user_role}</p></div>", unsafe_allow_html=True)
+
+# --- MAIN APP LOGIC ---
+if not st.session_state.logged_in:
+    if st.session_state.page == 'login':
+        login_page()
+    elif st.session_state.page == 'register':
+        register_page()
+    elif st.session_state.page == 'forgot_pwd':
+        forgot_password_page()
+else:
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        if st.button("Dashboard", key="nav_dash"):
+            st.session_state.menu_selection = 'Dashboard'
+            st.rerun()
+    with c2:
+        if st.button("Saved Papers", key="nav_saved"):
+            st.session_state.menu_selection = 'Saved'
+            st.rerun()
+    with c3:
+        if st.button("Upload History", key="nav_hist"):
+            st.session_state.menu_selection = 'History'
+            st.rerun()
+    with c4:
+        if st.button("Logout", key='logout_btn'):
+            st.session_state.logged_in = False
+            st.rerun()
+    with c5:
+        if st.button(st.session_state.user_initial, key='profile_circle'):
+            st.session_state.menu_selection = 'Profile'
+            st.rerun()
+
+    st.markdown("---")
+
+    if st.session_state.menu_selection == 'Dashboard':
+        dashboard_view()
+    elif st.session_state.menu_selection == 'Saved':
+        saved_view()
+    elif st.session_state.menu_selection == 'History':
+        history_view()
+    elif st.session_state.menu_selection == 'Profile':
         profile_view()
