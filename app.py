@@ -18,21 +18,21 @@ import numpy as np
 import spacy
 from spacy.lang.en import English
 
-# --- SPACY MODEL LOADING ---
+# SPACY MODEL LOADING      
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
     st.error("SpaCy model 'en_core_web_sm' not found. Please run: python -m spacy download en_core_web_sm")
     st.stop()
 
-# --- PAGE CONFIGURATION ---
+#  PAGE CONFIGURATION
 st.set_page_config(
     page_title="PaperIQ",
     page_icon="■",
     layout="wide",
 )
 
-# --- AI MODEL LOADING (Transformers) ---
+#  AI MODEL LOADING (Transformers) 
 try:
     from transformers import pipeline
     AI_AVAILABLE = True
@@ -54,7 +54,7 @@ if AI_AVAILABLE:
 else:
     summarizer = None
 
-# --- DATABASE ENGINE ---
+#  DATABASE ENGINE 
 DB_NAME = "paperiq.db"
 
 def init_db():
@@ -107,7 +107,7 @@ def run_query(query, params=(), fetch_one=False, fetch_all=False):
 def hash_password(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
-# --- SESSION STATE INITIALIZATION ---
+# SESSION STATE INITIALIZATION 
 if 'page' not in st.session_state:
     st.session_state.page = 'login'
 if 'logged_in' not in st.session_state:
@@ -137,7 +137,7 @@ if 'fp_email' not in st.session_state:
 if 'fp_sq' not in st.session_state:
     st.session_state.fp_sq = ""
 
-# --- DARK THEME CSS (permanent) ---
+# CSS 
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
@@ -329,7 +329,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- AUTH LOGIC ---
+# AUTH LOGIC 
 def register_user(email, fullname, password, role, sq, sa):
     exists = run_query("SELECT email FROM users WHERE email = ?", (email,), fetch_one=True)
     if exists:
@@ -352,14 +352,14 @@ def verify_security_answer(email, answer):
 def update_password(email, new_password):
     return run_query("UPDATE users SET password = ? WHERE email = ?", (hash_password(new_password), email))
 
-# --- SAFE TEXT ENCODING FOR PDF EXPORT (prevents Unicode crashes) ---
+# SAFE TEXT ENCODING FOR PDF EXPORT
 def safe_text(text):
     """Convert any text to latin-1 safely, replacing unsupported characters."""
     if not isinstance(text, str):
         text = str(text)
     return text.encode('latin-1', errors='replace').decode('latin-1')
 
-# --- EXPORT FUNCTIONS ---
+# EXPORT FUNCTIONS 
 def generate_markdown(engine, filename):
     """Generate a Markdown string with all analysis details for a paper."""
     md = f"# PaperIQ Analysis Report: {filename}\n\n"
@@ -451,7 +451,7 @@ def generate_combined_pdf(analyses):
         pdf.ln(3)
     return pdf.output(dest='S').encode('latin-1')
 
-# --- PDF REPORT GENERATOR (single paper) ---
+# PDF REPORT GENERATOR (single paper)
 def create_pdf_report(filename, engine):
     pdf = FPDF()
     pdf.add_page()
@@ -557,7 +557,7 @@ def create_pdf_report(filename, engine):
 
     return pdf.output(dest='S').encode('latin-1')
 
-# --- CORE ENGINE (Improved with spaCy and cleaning) ---
+# CORE ENGINE 
 class InsightEngine:
     def __init__(self):
         self.full_text = ""          # raw text from PDF
@@ -583,9 +583,9 @@ class InsightEngine:
         self.sentences = []   # list of sentence strings (cleaned)
         self.words = []       # list of word strings (cleaned)
 
-    # ------------------------------
+   
     # Cleaning methods
-    # ------------------------------
+   
     def _remove_headers_footers(self, text):
         """Remove common headers/footers like page numbers, running titles."""
         lines = text.split('\n')
@@ -734,9 +734,9 @@ class InsightEngine:
         # Get words from all sentences (excluding punctuation)
         self.words = [token.text for token in self.doc if not token.is_punct and not token.is_space]
 
-    # ------------------------------
+
     # Existing methods (adapted)
-    # ------------------------------
+    
     def clean_text_func(self, text):
         # We'll keep this for backward compatibility, but we use the new cleaning pipeline.
         return text.lower().strip()  # not used in new pipeline
@@ -1255,17 +1255,18 @@ def register_page():
             st.session_state.page = 'login'
             st.rerun()
 
-# --- DASHBOARD VIEW (unchanged except using new engine) ---
+#  DASHBOARD VIEW (unchanged except using new engine) 
 def dashboard_view():
     st.markdown("### Dashboard")
     st.markdown("""
         <div class='info-card'>
-            <div class='info-title'>📄 PaperIQ – AI Academic Writing Analyzer</div>
-            <div class='info-text'>PaperIQ is an AI-powered academic writing evaluation tool developed during Infosys Springboard Virtual Internship 6.0.<br><br>
-            It analyzes research documents and provides:<br>
-            • Language Quality Score<br>
-            • Coherence Score<br>
-            • Reasoning Strength</div>
+            <div class='info-title'>📄 PaperIQ is an AI-powered academic document analysis platform developed during the Infosys Springboard Virtual Internship 6.0. The system helps students and researchers evaluate research papers by automatically extracting and analyzing the document content using Natural Language Processing (NLP) and Machine Learning techniques.<br><br>
+            PaperIQ provides insights such as:<br>
+            • Language Quality Score – evaluates vocabulary richness and writing clarity<br>
+            • Coherence Score – measures logical flow between sentences and paragraphs<br>
+            • Reasoning Strength – identifies analytical and argumentative patterns<br>
+            • AI-generated section summaries for key parts of the paper<br>
+            • Research gap detection and similarity analysis between papers<br></div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -1545,7 +1546,7 @@ def dashboard_view():
                        eng.mandatory_map['Abstract'][:200]))
             st.success("Paper saved to your library!")
 
-# --- Other views (Saved, History, Profile) ---
+#  Other views (Saved, History, Profile) 
 def saved_view():
     st.markdown("### Saved Papers")
     data = run_query("SELECT * FROM saved_papers WHERE user_email=?", (st.session_state.user_email,), fetch_all=True)
