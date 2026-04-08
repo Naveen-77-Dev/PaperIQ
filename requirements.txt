@@ -5,8 +5,7 @@ plotly
 fpdf
 scikit-learn
 transformers
-torch  # if using transformers
+torch
 pandas
 numpy
 spacy
-en-core-web-sm
