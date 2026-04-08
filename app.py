@@ -22,8 +22,13 @@ from spacy.lang.en import English
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
-    st.error("SpaCy model 'en_core_web_sm' not found. Please run: python -m spacy download en_core_web_sm")
-    st.stop()
+    # Fallback to a lightweight spaCy pipeline if the full English model is unavailable.
+    nlp = English()
+    try:
+        nlp.add_pipe("sentencizer")
+    except Exception:
+        pass
+    st.warning("SpaCy model 'en_core_web_sm' not found. Using lightweight fallback. For best results install the model with: python -m spacy download en_core_web_sm")
 
 #  PAGE CONFIGURATION
 st.set_page_config(
