@@ -38,6 +38,84 @@ st.set_page_config(
     layout="wide",
 )
 
+# CUSTOM CSS FOR LIGHT THEME
+st.markdown("""
+    <style>
+    /* Overall background and text */
+    .stApp {
+        background-color: #FFFFFF;
+        color: #000000;
+    }
+    
+    /* Button styling - white background with black text */
+    .stButton > button {
+        background-color: #FFFFFF;
+        color: #000000;
+        border: 1px solid #000000;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        background-color: #F0F0F0;
+        color: #000000;
+        border-color: #333333;
+    }
+    
+    /* Input fields */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div > select,
+    .stNumberInput > div > div > input {
+        background-color: #FFFFFF;
+        color: #000000;
+        border: 1px solid #CCCCCC;
+    }
+    
+    /* Radio button and checkboxes */
+    .stRadio > label > div,
+    .stCheckbox > label > div {
+        color: #000000;
+    }
+    
+    /* Sidebar */
+    .css-1d391kg {
+        background-color: #F5F5F5;
+    }
+    
+    /* Headers and titles */
+    h1, h2, h3, h4, h5, h6 {
+        color: #000000;
+    }
+    
+    /* Metric labels */
+    .stMetric {
+        background-color: #F5F5F5;
+        border-radius: 5px;
+        padding: 10px;
+    }
+    
+    /* Select box dropdown */
+    .stSelectbox label {
+        color: #000000;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #000000;
+        background-color: #FFFFFF;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #000000;
+        border-bottom: 2px solid #000000;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 #  AI MODEL LOADING (Transformers) 
 try:
     from transformers import pipeline
