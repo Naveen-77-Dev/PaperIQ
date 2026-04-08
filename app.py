@@ -17,6 +17,19 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import spacy
 from spacy.lang.en import English
+import subprocess
+import sys
+
+# AUTO INSTALL SPACY MODEL IF NEEDED
+@st.cache_resource
+def ensure_spacy_model():
+    try:
+        spacy.load("en_core_web_sm")
+    except OSError:
+        with st.spinner("Installing spaCy model (first time only)..."):
+            subprocess.check_call([sys.executable, "-m", "spacy", "download", "en_core_web_sm"])
+
+ensure_spacy_model()
 
 # SPACY MODEL LOADING      
 try:
