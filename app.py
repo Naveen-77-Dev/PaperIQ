@@ -51,7 +51,7 @@ st.markdown("""
     .stButton > button {
         background-color: #FFFFFF;
         color: #000000;
-        border: 1px solid #000000;
+        border: 1px solid #DEDEDE;
         border-radius: 5px;
         padding: 10px 20px;
         font-weight: 500;
@@ -59,9 +59,9 @@ st.markdown("""
     }
     
     .stButton > button:hover {
-        background-color: #F0F0F0;
+        background-color: #F8F9FA;
         color: #000000;
-        border-color: #333333;
+        border-color: #000000;
     }
     
     /* Input fields */
@@ -71,7 +71,7 @@ st.markdown("""
     .stNumberInput > div > div > input {
         background-color: #FFFFFF;
         color: #000000;
-        border: 1px solid #CCCCCC;
+        border: 1px solid #DDDDDD;
     }
     
     /* Radio button and checkboxes */
@@ -81,18 +81,19 @@ st.markdown("""
     }
     
     /* Sidebar */
-    .css-1d391kg {
-        background-color: #F5F5F5;
+    [data-testid="stSidebar"] {
+        background-color: #F8F9FA;
+        border-right: 1px solid #EEEEEE;
     }
     
     /* Headers and titles */
     h1, h2, h3, h4, h5, h6 {
-        color: #000000;
+        color: #000000 !important;
     }
     
     /* Metric labels */
     .stMetric {
-        background-color: #F5F5F5;
+        background-color: #F1F3F5;
         border-radius: 5px;
         padding: 10px;
     }
@@ -104,8 +105,8 @@ st.markdown("""
     
     /* Tabs */
     .stTabs [data-baseweb="tab-list"] button {
-        color: #000000;
-        background-color: #FFFFFF;
+        color: #444444;
+        background-color: transparent;
     }
     
     .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
@@ -227,23 +228,23 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
 
     :root {
-        --bg-color: #050505;
-        --card-bg: #111111;
-        --text-color: #FFFFFF;
-        --text-dim: #A0A0A0;
-        --border: #333333;
-        --button-bg: #1E1E1E;
-        --primary-blue: #0056b3;
-        --input-bg: #0F0F0F;
-        --expander-bg: #1A1A1A;
-        --expander-content-bg: #0A0A0A;
-        --stat-box-bg: #161616;
-        --logout-bg: #330000;
+        --bg-color: #FFFFFF;
+        --card-bg: #F9F9F9;
+        --text-color: #1A1A1A;
+        --text-dim: #666666;
+        --border: #E0E0E0;
+        --button-bg: #FFFFFF;
+        --primary-blue: #007BFF;
+        --input-bg: #FFFFFF;
+        --expander-bg: #F1F3F5;
+        --expander-content-bg: #FFFFFF;
+        --stat-box-bg: #F8F9FA;
+        --logout-bg: #FFF5F5;
         --logout-hover: #FF0000;
-        --logout-text: #FF4444;
-        --file-uploader-bg: #0F0F0F;
-        --file-uploader-text: #FFFFFF;
-        --file-uploader-border: #333333;
+        --logout-text: #C92A2A;
+        --file-uploader-bg: #F8F9FA;
+        --file-uploader-text: #1A1A1A;
+        --file-uploader-border: #CCCCCC;
     }
 
     .stApp {
@@ -270,21 +271,22 @@ st.markdown("""
     div.stButton > button[key="nav_dash"]:hover,
     div.stButton > button[key="nav_saved"]:hover,
     div.stButton > button[key="nav_hist"]:hover {
-        background-color: var(--border);
-        border-color: var(--text-color);
+        background-color: #F1F3F5;
+        border-color: #000000;
     }
 
     /* Logout button */
     div.stButton > button[key="logout_btn"] {
         background-color: var(--logout-bg) !important;
         color: var(--logout-text) !important;
-        border: 1px solid var(--logout-text) !important;
+        border: 1px solid #FFA8A8 !important;
         border-radius: 8px;
         font-weight: 600;
         width: 100%;
     }
     div.stButton > button[key="logout_btn"]:hover {
         background-color: var(--logout-hover) !important;
+        color: #FFFFFF !important;
     }
 
     /* Profile circle button */
@@ -297,21 +299,22 @@ st.markdown("""
         padding: 0;
         font-size: 18px;
         font-weight: 800;
-        border: 2px solid var(--text-color);
+        border: 2px solid #FFFFFF;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-left: auto;
         margin-right: auto;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     div.stButton > button[key="profile_circle"]:hover {
-        background-color: #004494;
-        transform: scale(1.1);
+        background-color: #0056b3;
+        transform: scale(1.05);
     }
 
     /* Analyze button */
     div.stButton > button[key="analyze_btn"] {
-        background: linear-gradient(90deg, var(--primary-blue) 0%, #004494 100%);
+        background: linear-gradient(90deg, var(--primary-blue) 0%, #0056b3 100%);
         color: white;
         border: none;
         padding: 15px;
@@ -321,30 +324,16 @@ st.markdown("""
         width: 100%;
     }
     div.stButton > button[key="analyze_btn"]:hover {
-        opacity: 0.9;
-        box-shadow: 0 0 15px rgba(0,86,179,0.5);
+        opacity: 0.95;
+        box-shadow: 0 4px 12px rgba(0,123,255,0.3);
     }
 
     /* File uploader */
-    .stFileUploader {
+    [data-testid="stFileUploader"] {
         background-color: var(--file-uploader-bg);
-        color: var(--file-uploader-text);
         border: 1px dashed var(--file-uploader-border);
         border-radius: 8px;
-        padding: 20px;
-    }
-    .stFileUploader label {
-        color: var(--file-uploader-text) !important;
-    }
-    .stFileUploader small {
-        color: var(--text-dim) !important;
-    }
-    .stFileUploader button {
-        background-color: var(--primary-blue);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 5px 10px;
+        padding: 10px;
     }
 
     /* Info cards */
@@ -354,6 +343,7 @@ st.markdown("""
         border-radius: 12px;
         padding: 25px;
         margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
     .info-title { color: var(--text-color); font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }
     .info-text { color: var(--text-dim); font-size: 0.95rem; line-height: 1.6; }
@@ -395,6 +385,9 @@ st.markdown("""
 
     /* Tabs */
     button[data-baseweb="tab"] {
+        color: var(--text-dim) !important;
+    }
+    button[aria-selected="true"] {
         color: var(--text-color) !important;
     }
     div[data-testid="stTabs"] {
@@ -404,15 +397,9 @@ st.markdown("""
         padding: 10px;
     }
 
-    /* Select slider */
-    div[data-testid="stSlider"] {
-        color: var(--text-color);
-    }
-
     #MainMenu, footer, header { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
-
 # AUTH LOGIC 
 def register_user(email, fullname, password, role, sq, sa):
     exists = run_query("SELECT email FROM users WHERE email = ?", (email,), fetch_one=True)
