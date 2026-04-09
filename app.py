@@ -1251,7 +1251,7 @@ def forgot_password_page():
     c1, c2, c3 = st.columns([1, 1.5, 1])
     with c2:
         st.markdown("<h1 style='text-align:center;'>Reset Password</h1>", unsafe_allow_html=True)
-        st.markdown("<div style='background:#111; padding:30px; border-radius:15px; border:1px solid #333;'>", unsafe_allow_html=True)
+        
         if st.session_state.fp_step == 1:
             email = st.text_input("Enter your registered Email")
             if st.button("Next"):
